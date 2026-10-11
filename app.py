@@ -1,3 +1,4 @@
+import os
 import joblib
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ st.set_page_config(
     page_title="Credit Risk Analysis System", page_icon="💳", layout="wide"
 )
 
-# Initialize Session State for Login & History Tracking
+# Initialize Session State
 if "logged_in" not in st.session_state:
   st.session_state.logged_in = False
 if "username" not in st.session_state:
@@ -27,93 +28,70 @@ def load_artifacts():
 try:
   model, feature_names = load_artifacts()
 except Exception as e:
-  st.error(
-      f"Model files not found in 'model/' directory. Please ensure artifacts"
-      f" are trained. Error: {e}"
-  )
+  st.error(f"Model files not found in 'model/' directory. Error: {e}")
   st.stop()
 
-# --- SIDEBAR: LOGIN & INPUTS ---
-st.sidebar.title("🔐 Authentication & Inputs")
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.title("💳 Navigation")
+page = st.sidebar.radio("Go to", ["Home", "Input & Prediction", "Past Records"])
 
-# Login Section
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔐 Account Access")
 if not st.session_state.logged_in:
-  with st.sidebar.form("login_form"):
-    st.subheader("Underwriter Login")
-    user_input = st.text_input("Username")
-    pass_input = st.text_input("Password", type="password")
-    login_btn = st.form_submit_button("Log In")
-    if login_btn:
-      if user_input.strip() != "":
-        st.session_state.logged_in = True
-        st.session_state.username = user_input
-        st.success(f"Welcome, {user_input}!")
-        st.rerun()
-      else:
-        st.warning("Please enter a valid username.")
-  st.sidebar.markdown("---")
-  st.sidebar.info("💡 Log in via sidebar to record assessment logs.")
+  if st.sidebar.button("Log In"):
+    # Pop-up container for login
+    login_container = st.empty()
+    with login_container.container():
+      st.info(
+          "Please enter your credentials below to access session records."
+      )
+      with st.form("popup_login"):
+        u_input = st.text_input("Username")
+        p_input = st.text_input("Password", type="password")
+        submit_login = st.form_submit_button("Confirm Login")
+        if submit_login:
+          if u_input.strip() != "":
+            st.session_state.logged_in = True
+            st.session_state.username = u_input
+            st.success(f"Successfully logged in as {u_input}!")
+            st.rerun()
+          else:
+            st.error("Please provide a valid username.")
 else:
   st.sidebar.success(f"Logged in as: **{st.session_state.username}**")
   if st.sidebar.button("Log Out"):
     st.session_state.logged_in = False
     st.session_state.username = ""
     st.rerun()
-  st.sidebar.markdown("---")
-
-# Applicant Parameter Inputs (Always visible in sidebar as requested)
-st.sidebar.header("⚙️ Applicant Parameters")
-age = st.sidebar.number_input("Applicant Age", 18, 100, 28)
-income = st.sidebar.number_input(
-    "Annual Income ($)", 0, 1000000, 60000, step=1000
-)
-emp_len = st.sidebar.number_input(
-    "Employment Length (Years)", 0.0, 50.0, 4.0, step=0.5
-)
-amount = st.sidebar.number_input(
-    "Loan Amount Requested ($)", 500, 100000, 12000, step=500
-)
-rate = st.sidebar.number_input("Interest Rate (%)", 1.0, 35.0, 10.5, step=0.1)
-cred_hist = st.sidebar.number_input("Credit History Length (Years)", 0, 50, 4)
-
-default_history = st.sidebar.selectbox("Historical Default on File?", ["No", "Yes"])
-grade = st.sidebar.selectbox(
-    "Loan Grade", ["A", "B", "C", "D", "E", "F", "G"]
-)
-home = st.sidebar.selectbox(
-    "Home Ownership", ["RENT", "OWN", "MORTGAGE", "OTHER"]
-)
-intent = st.sidebar.selectbox(
-    "Loan Intent",
-    [
-        "PERSONAL",
-        "EDUCATION",
-        "MEDICAL",
-        "VENTURE",
-        "HOMEIMPROVEMENT",
-        "DEBTCONSOLIDATION",
-    ],
-)
 
 
-# --- MAIN HEADER ---
-st.title("Credit Risk Analysis System")
-st.markdown(
-    "Automated Underwriting Dashboard • *Supports Auto-Theming (Dark/Light Mode)*"
-)
-st.markdown("---")
+# ==========================================
+# PAGE 1: HOME PAGE
+# ==========================================
+if page == "Home":
+  st.title("Credit Risk Analysis System")
+  st.markdown("### Welcome to the Intelligent Loan Underwriting Portal")
 
-# Main Navigation Tabs
-tab_home, tab_predict, tab_history = st.tabs(
-    [
-        "🏠 Overview",
-        "🔮 Central Prediction & Analysis",
-        "📋 Past Records Log",
-    ]
-)
+  # 5-6 line descriptive introduction
+  st.write(
+      "Welcome to Credit Risk Analysis, a comprehensive financial intelligence"
+      " platform designed to help lending institutions evaluate whether to"
+      " approve or reject a loan applicant. You do not need to sign in to"
+      " continue evaluating risk profiles, making the core prediction engine"
+      " instantly accessible for quick assessments. However, signing in"
+      " unlocks audit logging, allowing you to track and review your past"
+      " assessment records seamlessly in a tabular history log. Always review"
+      " the final prediction alongside the concise automated explanation"
+      " provided below each output to understand the underlying risk drivers"
+      " such as debt-to-income ratios and credit history."
+  )
 
-with tab_home:
-  st.subheader("Portfolio Summary Metrics")
+  # Navigation Button to Jump to Input Page
+  if st.button("🚀 Start Your Analysis", type="primary"):
+    st.switch_page("app.py")  # Refreshes to top or state change
+
+  st.markdown("---")
+  st.subheader("📊 Portfolio Summary Metrics")
   col1, col2, col3, col4 = st.columns(4)
   col1.metric("Total Applicants", "32,581", "+1,200")
   col2.metric("Low Risk (Prime)", "23,133", "71.0%")
@@ -121,27 +99,94 @@ with tab_home:
   col4.metric("Avg Approval Probability", "76.4%", "+2.1%")
 
   st.markdown("---")
-  st.markdown("### System Architecture")
+  st.subheader("📈 Exploratory Data Analysis & Visualizations")
   st.write(
-      "This application evaluates multi-dimensional financial risk features"
-      " using a Random Forest model. Use the sidebar to modify applicant"
-      " details and jump to the **Central Prediction & Analysis** tab for"
-      " assessed outputs and explanations."
+      "Review the core statistical distributions and risk factors identified"
+      " across our applicant dataset:"
   )
 
-with tab_predict:
-  st.subheader("Centered Assessment & Explanation Engine")
+  # Displaying the 5 Visualizations below metrics
+  c1, c2 = st.columns(2)
+  with c1:
+    if os.path.exists("assets/eda_income_patterns.png"):
+      st.image(
+          "assets/eda_income_patterns.png",
+          caption="Income vs Loan Default Patterns",
+      )
+    if os.path.exists("assets/eda_risk_distribution_grade.png"):
+      st.image(
+          "assets/eda_risk_distribution_grade.png",
+          caption="Default Distribution by Loan Grade",
+      )
+    if os.path.exists("assets/eda_cred_history.png"):
+      st.image(
+          "assets/eda_cred_history.png", caption="Credit History vs Default"
+      )
+
+  with c2:
+    if os.path.exists("assets/eda_loan_amounts.png"):
+      st.image(
+          "assets/eda_loan_amounts.png", caption="Loan Amount Distribution"
+      )
+    if os.path.exists("assets/eda_default_trends_intent.png"):
+      st.image(
+          "assets/eda_default_trends_intent.png",
+          caption="Default Trends by Loan Intent",
+      )
+
+
+# ==========================================
+# PAGE 2: INPUT & PREDICTION PAGE
+# ==========================================
+elif page == "Input & Prediction":
+  st.title("🔮 Central Prediction & Analysis Engine")
   st.write(
-      "Review your sidebar selections and click below to run underwriting"
-      " inference."
+      "Adjust the applicant parameters in the sidebar and click assess to"
+      " evaluate risk."
+  )
+  st.markdown("---")
+
+  # Sidebar Inputs for Prediction
+  st.sidebar.header("⚙️ Applicant Parameters")
+  age = st.sidebar.number_input("Applicant Age", 18, 100, 28)
+  income = st.sidebar.number_input(
+      "Annual Income ($)", 0, 1000000, 60000, step=1000
+  )
+  emp_len = st.sidebar.number_input(
+      "Employment Length (Years)", 0.0, 50.0, 4.0, step=0.5
+  )
+  amount = st.sidebar.number_input(
+      "Loan Amount Requested ($)", 500, 100000, 12000, step=500
+  )
+  rate = st.sidebar.number_input("Interest Rate (%)", 1.0, 35.0, 10.5, step=0.1)
+  cred_hist = st.sidebar.number_input("Credit History Length (Years)", 0, 50, 4)
+
+  default_history = st.sidebar.selectbox(
+      "Historical Default on File?", ["No", "Yes"]
+  )
+  grade = st.sidebar.selectbox(
+      "Loan Grade", ["A", "B", "C", "D", "E", "F", "G"]
+  )
+  home = st.sidebar.selectbox(
+      "Home Ownership", ["RENT", "OWN", "MORTGAGE", "OTHER"]
+  )
+  intent = st.sidebar.selectbox(
+      "Loan Intent",
+      [
+          "PERSONAL",
+          "EDUCATION",
+          "MEDICAL",
+          "VENTURE",
+          "HOMEIMPROVEMENT",
+          "DEBTCONSOLIDATION",
+      ],
   )
 
-  # Centered container for prediction action
+  # Centered Prediction Container
   with st.container():
     if st.button(
         "🚀 Assess Applicant Risk", type="primary", use_container_width=True
     ):
-      # Feature formatting
       grade_dict = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7}
       percent_income = amount / income if income > 0 else 0
 
@@ -166,11 +211,10 @@ with tab_predict:
           row[col] = 1 if intent == cat else 0
 
       input_df = pd.DataFrame([row])[feature_names]
-
       prob = model.predict_proba(input_df)[0][1]
       pct = round(prob * 100, 2)
 
-      # Display Output Metrics Centered
+      # Output Display Columns
       res_col1, res_col2 = st.columns(2)
       with res_col1:
         st.metric(label="Calculated Default Probability", value=f"{pct}%")
@@ -180,20 +224,20 @@ with tab_predict:
         if prob < 0.30:
           decision = "Approved (Low Risk)"
           st.success(
-              f"### Status: {decision}\n- **DTI Ratio:**"
-              f" {round(percent_income*100, 1)}%\n- **Risk Tier:** Prime"
+              f"### Status: {decision}\n- DTI Ratio:"
+              f" {round(percent_income*100, 1)}%\n- Risk Tier: Prime"
           )
         elif prob <= 0.60:
           decision = "Manual Review Needed"
           st.warning(
-              f"### Status: {decision}\n- **DTI Ratio:**"
-              f" {round(percent_income*100, 1)}%\n- **Risk Tier:** Borderline"
+              f"### Status: {decision}\n- DTI Ratio:"
+              f" {round(percent_income*100, 1)}%\n- Risk Tier: Borderline"
           )
         else:
           decision = "Rejected (High Risk)"
           st.error(
-              f"### Status: {decision}\n- **DTI Ratio:**"
-              f" {round(percent_income*100, 1)}%\n- **Risk Tier:** Subprime"
+              f"### Status: {decision}\n- DTI Ratio:"
+              f" {round(percent_income*100, 1)}%\n- Risk Tier: Subprime"
           )
 
       # Concise Explanation Section
@@ -207,30 +251,37 @@ with tab_predict:
       """
       st.info(explanation)
 
-      # Save to Session History Log
-      record = {
-          "User": st.session_state.username
-          if st.session_state.logged_in
-          else "Guest",
-          "Income": income,
-          "Loan Amount": amount,
-          "Grade": grade,
-          "Default Prob (%)": pct,
-          "Decision": decision,
-      }
-      st.session_state.history.append(record)
+      # Log Record if Logged In
+      if st.session_state.logged_in:
+        record = {
+            "User": st.session_state.username,
+            "Income": income,
+            "Loan Amount": amount,
+            "Grade": grade,
+            "Default Prob (%)": pct,
+            "Decision": decision,
+        }
+        st.session_state.history.append(record)
 
-with tab_history:
-  st.subheader("📋 Past Session Prediction Records")
-  st.write(
-      "Tabular audit log of predictions evaluated during this session."
-  )
 
-  if len(st.session_state.history) > 0:
-    history_df = pd.DataFrame(st.session_state.history)
-    st.dataframe(history_df, use_container_width=True)
+# ==========================================
+# PAGE 3: PAST RECORDS PAGE
+# ==========================================
+elif page == "Past Records":
+  st.title("📋 Past Assessment Records Log")
+  st.write("Audit log of predictions evaluated during your active session.")
+
+  if st.session_state.logged_in:
+    if len(st.session_state.history) > 0:
+      history_df = pd.DataFrame(st.session_state.history)
+      st.dataframe(history_df, use_container_width=True)
+    else:
+      st.info(
+          "No prediction records logged yet. Run an assessment in the **Input &"
+          " Prediction** page."
+      )
   else:
-    st.info(
-        "No prediction records logged yet. Run an assessment in the **Central"
-        " Prediction & Analysis** tab."
+    st.warning(
+        "🔒 **Access Restricted:** You must be logged in to view past"
+        " records. Please click **Log In** in the sidebar."
     )
