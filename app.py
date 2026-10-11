@@ -9,41 +9,52 @@ st.set_page_config(
     page_title="Credit Risk Analysis System", page_icon="💳", layout="wide"
 )
 
-# Custom CSS Injection to match visualization background (#071A33) and cards (#0E2A4D)
+# Detect Streamlit Active Theme (Dark vs Light)
+is_dark = st.get_option("theme.base") == "dark"
+
+# Dynamic Theme Variables for Website Background & Cards
+bg_color = "#071A33" if is_dark else "#FFFFFF"
+sidebar_color = "#041021" if is_dark else "#F0F4F8"
+text_color = "#E6F1FF" if is_dark else "#1B2A41"
+panel_color = "#0E2A4D" if is_dark else "#F7FAFD"
+border_color = "#1C4474" if is_dark else "#D5DCEC"
+theme_suffix = "dark" if is_dark else "light"
+
+# Inject Dynamic CSS based on Theme Mode
 st.markdown(
-    """
+    f"""
     <style>
     /* Main App Background */
-    .stApp {
-        background-color: #071A33;
-        color: #E6F1FF;
-    }
+    .stApp {{
+        background-color: {bg_color};
+        color: {text_color};
+    }}
     
     /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background-color: #041021;
-        color: #E6F1FF;
-    }
+    [data-testid="stSidebar"] {{
+        background-color: {sidebar_color};
+        color: {text_color};
+    }}
     
     /* Metric Cards Styling */
-    [data-testid="stMetric"] {
-        background-color: #0E2A4D;
-        border: 1px solid #1C4474;
+    [data-testid="stMetric"] {{
+        background-color: {panel_color};
+        border: 1px solid {border_color};
         padding: 15px;
         border-radius: 10px;
-    }
+    }}
     
-    /* Headers and Text */
-    h1, h2, h3, h4, h5, h6, p, span, label {
-        color: #E6F1FF !important;
-    }
+    /* Headers, Text, and Labels */
+    h1, h2, h3, h4, h5, h6, p, span, label {{
+        color: {text_color} !important;
+    }}
     
-    /* Form and Input Backgrounds */
-    .stTextInput input, .stNumberInput input, .stSelectbox select {
-        background-color: #0E2A4D !important;
-        color: #E6F1FF !important;
-        border-color: #1C4474 !important;
-    }
+    /* Form Inputs */
+    .stTextInput input, .stNumberInput input, .stSelectbox select {{
+        background-color: {panel_color} !important;
+        color: {text_color} !important;
+        border-color: {border_color} !important;
+    }}
     </style>
 """,
     unsafe_allow_html=True,
@@ -130,20 +141,28 @@ if page == "Home":
   st.markdown("---")
   st.subheader("📈 EDA Visualizations & Risk Drivers")
 
+  # Dynamically load either the _dark.png or _light.png asset based on theme mode
   c1, c2 = st.columns(2)
   with c1:
-    if os.path.exists("assets/eda_income_patterns.png"):
-      st.image("assets/eda_income_patterns.png")
-    if os.path.exists("assets/eda_risk_distribution_grade.png"):
-      st.image("assets/eda_risk_distribution_grade.png")
-    if os.path.exists("assets/eda_cred_history.png"):
-      st.image("assets/eda_cred_history.png")
+    img_path_1 = f"assets/eda_income_patterns_{theme_suffix}.png"
+    img_path_2 = f"assets/eda_risk_distribution_grade_{theme_suffix}.png"
+    img_path_3 = f"assets/eda_cred_history_{theme_suffix}.png"
+
+    if os.path.exists(img_path_1):
+      st.image(img_path_1)
+    if os.path.exists(img_path_2):
+      st.image(img_path_2)
+    if os.path.exists(img_path_3):
+      st.image(img_path_3)
 
   with c2:
-    if os.path.exists("assets/eda_loan_amounts.png"):
-      st.image("assets/eda_loan_amounts.png")
-    if os.path.exists("assets/eda_default_trends_intent.png"):
-      st.image("assets/eda_default_trends_intent.png")
+    img_path_4 = f"assets/eda_loan_amounts_{theme_suffix}.png"
+    img_path_5 = f"assets/eda_default_trends_intent_{theme_suffix}.png"
+
+    if os.path.exists(img_path_4):
+      st.image(img_path_4)
+    if os.path.exists(img_path_5):
+      st.image(img_path_5)
 
 
 # ==========================================
