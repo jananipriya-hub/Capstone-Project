@@ -31,34 +31,28 @@ except Exception as e:
   st.error(f"Model files not found in 'model/' directory. Error: {e}")
   st.stop()
 
-# --- SIDEBAR NAVIGATION ---
+# --- SIDEBAR NAVIGATION & LOGIN MODAL ---
 st.sidebar.title("💳 Navigation")
 page = st.sidebar.radio("Go to", ["Home", "Input & Prediction", "Past Records"])
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔐 Account Access")
 if not st.session_state.logged_in:
-  if st.sidebar.button("Log In"):
-    # Pop-up container for login
-    login_container = st.empty()
-    with login_container.container():
-      st.info(
-          "Please enter your credentials below to access session records."
-      )
-      with st.form("popup_login"):
-        u_input = st.text_input("Username")
-        p_input = st.text_input("Password", type="password")
-        submit_login = st.form_submit_button("Confirm Login")
-        if submit_login:
-          if u_input.strip() != "":
-            st.session_state.logged_in = True
-            st.session_state.username = u_input
-            st.success(f"Successfully logged in as {u_input}!")
-            st.rerun()
-          else:
-            st.error("Please provide a valid username.")
+  with st.sidebar.expander("Log In to System"):
+    with st.form("popup_login"):
+      u_input = st.text_input("Username")
+      p_input = st.text_input("Password", type="password")
+      submit_login = st.form_submit_button("Confirm Login")
+      if submit_login:
+        if u_input.strip() != "":
+          st.session_state.logged_in = True
+          st.session_state.username = u_input
+          st.success(f"Logged in as {u_input}!")
+          st.rerun()
+        else:
+          st.error("Enter a valid username.")
 else:
-  st.sidebar.success(f"Logged in as: **{st.session_state.username}**")
+  st.sidebar.success(f"User: **{st.session_state.username}**")
   if st.sidebar.button("Log Out"):
     st.session_state.logged_in = False
     st.session_state.username = ""
@@ -72,7 +66,6 @@ if page == "Home":
   st.title("Credit Risk Analysis System")
   st.markdown("### Welcome to the Intelligent Loan Underwriting Portal")
 
-  # 5-6 line descriptive introduction
   st.write(
       "Welcome to Credit Risk Analysis, a comprehensive financial intelligence"
       " platform designed to help lending institutions evaluate whether to"
@@ -86,10 +79,6 @@ if page == "Home":
       " such as debt-to-income ratios and credit history."
   )
 
-  # Navigation Button to Jump to Input Page
-  if st.button("🚀 Start Your Analysis", type="primary"):
-    st.switch_page("app.py")  # Refreshes to top or state change
-
   st.markdown("---")
   st.subheader("📊 Portfolio Summary Metrics")
   col1, col2, col3, col4 = st.columns(4)
@@ -99,13 +88,8 @@ if page == "Home":
   col4.metric("Avg Approval Probability", "76.4%", "+2.1%")
 
   st.markdown("---")
-  st.subheader("📈 Exploratory Data Analysis & Visualizations")
-  st.write(
-      "Review the core statistical distributions and risk factors identified"
-      " across our applicant dataset:"
-  )
+  st.subheader("📈 EDA Visualizations & Risk Drivers")
 
-  # Displaying the 5 Visualizations below metrics
   c1, c2 = st.columns(2)
   with c1:
     if os.path.exists("assets/eda_income_patterns.png"):
@@ -136,132 +120,141 @@ if page == "Home":
 
 
 # ==========================================
-# PAGE 2: INPUT & PREDICTION PAGE
+# PAGE 2: INPUT & PREDICTION PAGE (CENTERED)
 # ==========================================
 elif page == "Input & Prediction":
   st.title("🔮 Central Prediction & Analysis Engine")
   st.write(
-      "Adjust the applicant parameters in the sidebar and click assess to"
-      " evaluate risk."
+      "Enter applicant details below to evaluate risk and generate an"
+      " institutional underwriting score."
   )
   st.markdown("---")
 
-  # Sidebar Inputs for Prediction
-  st.sidebar.header("⚙️ Applicant Parameters")
-  age = st.sidebar.number_input("Applicant Age", 18, 100, 28)
-  income = st.sidebar.number_input(
-      "Annual Income ($)", 0, 1000000, 60000, step=1000
-  )
-  emp_len = st.sidebar.number_input(
-      "Employment Length (Years)", 0.0, 50.0, 4.0, step=0.5
-  )
-  amount = st.sidebar.number_input(
-      "Loan Amount Requested ($)", 500, 100000, 12000, step=500
-  )
-  rate = st.sidebar.number_input("Interest Rate (%)", 1.0, 35.0, 10.5, step=0.1)
-  cred_hist = st.sidebar.number_input("Credit History Length (Years)", 0, 50, 4)
+  # Centered Form Controls for Input Parameters
+  with st.form("prediction_form"):
+    st.subheader("📋 Applicant Parameter Details")
 
-  default_history = st.sidebar.selectbox(
-      "Historical Default on File?", ["No", "Yes"]
-  )
-  grade = st.sidebar.selectbox(
-      "Loan Grade", ["A", "B", "C", "D", "E", "F", "G"]
-  )
-  home = st.sidebar.selectbox(
-      "Home Ownership", ["RENT", "OWN", "MORTGAGE", "OTHER"]
-  )
-  intent = st.sidebar.selectbox(
-      "Loan Intent",
-      [
-          "PERSONAL",
-          "EDUCATION",
-          "MEDICAL",
-          "VENTURE",
-          "HOMEIMPROVEMENT",
-          "DEBTCONSOLIDATION",
-      ],
-  )
+    col_a, col_b, col_c = st.columns(3)
+    with col_a:
+      age = st.number_input("Applicant Age", 18, 100, 28)
+      income = st.number_input(
+          "Annual Income ($)", 0, 1000000, 60000, step=1000
+      )
+      emp_len = st.number_input(
+          "Employment Length (Years)", 0.0, 50.0, 4.0, step=0.5
+      )
+    with col_b:
+      amount = st.number_input(
+          "Loan Amount Requested ($)", 500, 100000, 12000, step=500
+      )
+      rate = st.number_input("Interest Rate (%)", 1.0, 35.0, 10.5, step=0.1)
+      cred_hist = st.number_input(
+          "Credit History Length (Years)", 0, 50, 4
+      )
+    with col_c:
+      default_history = st.selectbox(
+          "Historical Default on File?", ["No", "Yes"]
+      )
+      grade = st.selectbox(
+          "Loan Grade", ["A", "B", "C", "D", "E", "F", "G"]
+      )
+      home = st.selectbox(
+          "Home Ownership", ["RENT", "OWN", "MORTGAGE", "OTHER"]
+      )
 
-  # Centered Prediction Container
-  with st.container():
-    if st.button(
-        "🚀 Assess Applicant Risk", type="primary", use_container_width=True
-    ):
-      grade_dict = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7}
-      percent_income = amount / income if income > 0 else 0
+    intent = st.selectbox(
+        "Loan Intent",
+        [
+            "PERSONAL",
+            "EDUCATION",
+            "MEDICAL",
+            "VENTURE",
+            "HOMEIMPROVEMENT",
+            "DEBTCONSOLIDATION",
+        ],
+    )
 
-      row = {
-          "person_age": age,
-          "person_income": income,
-          "person_emp_length": emp_len,
-          "loan_grade": grade_dict[grade],
-          "loan_amnt": amount,
-          "loan_int_rate": rate,
-          "loan_percent_income": percent_income,
-          "cb_person_default_on_file": 1 if default_history == "Yes" else 0,
-          "cb_person_cred_hist_length": cred_hist,
+    submitted = st.form_submit_button(
+        "🚀 Assess Applicant Risk", use_container_width=True
+    )
+
+  if submitted:
+    grade_dict = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7}
+    percent_income = amount / income if income > 0 else 0
+
+    row = {
+        "person_age": age,
+        "person_income": income,
+        "person_emp_length": emp_len,
+        "loan_grade": grade_dict[grade],
+        "loan_amnt": amount,
+        "loan_int_rate": rate,
+        "loan_percent_income": percent_income,
+        "cb_person_default_on_file": 1 if default_history == "Yes" else 0,
+        "cb_person_cred_hist_length": cred_hist,
+    }
+
+    for col in feature_names:
+      if col.startswith("person_home_ownership_"):
+        cat = col.replace("person_home_ownership_", "")
+        row[col] = 1 if home == cat else 0
+      elif col.startswith("loan_intent_"):
+        cat = col.replace("loan_intent_", "")
+        row[col] = 1 if intent == cat else 0
+
+    input_df = pd.DataFrame([row])[feature_names]
+    prob = model.predict_proba(input_df)[0][1]
+    pct = round(prob * 100, 2)
+
+    st.markdown("---")
+    st.subheader("📊 Assessment Results")
+
+    res_col1, res_col2 = st.columns(2)
+    with res_col1:
+      st.metric(label="Calculated Default Probability", value=f"{pct}%")
+      st.progress(float(prob))
+
+    with res_col2:
+      if prob < 0.30:
+        decision = "Approved (Low Risk)"
+        st.success(
+            f"### Status: {decision}\n- DTI Ratio:"
+            f" {round(percent_income*100, 1)}%\n- Risk Tier: Prime"
+        )
+      elif prob <= 0.60:
+        decision = "Manual Review Needed"
+        st.warning(
+            f"### Status: {decision}\n- DTI Ratio:"
+            f" {round(percent_income*100, 1)}%\n- Risk Tier: Borderline"
+        )
+      else:
+        decision = "Rejected (High Risk)"
+        st.error(
+            f"### Status: {decision}\n- DTI Ratio:"
+            f" {round(percent_income*100, 1)}%\n- Risk Tier: Subprime"
+        )
+
+    # Explanation Section renamed to "Why This Score"
+    st.markdown("---")
+    st.markdown("### 💡 Why This Score")
+    explanation = f"""
+    - **Debt-to-Income Ratio (DTI):** The requested loan amount of `${amount:,}` represents **{round(percent_income*100, 1)}%** of the applicant's annual income (`${income:,}`). Higher DTI ratios increase default vulnerability.
+    - **Loan Grade & Interest Risk:** Assigned Loan Grade **{grade}** with an interest rate of **{rate}%**, indicating the risk tier evaluated by the credit bureau model.
+    - **Credit History Depth:** A credit history span of **{cred_hist} years** combined with prior default status (**{default_history}**) heavily influenced the ensemble classification tree path.
+    - **Final Model Verdict:** The Random Forest algorithm computed a default probability of **{pct}%**, leading directly to the classification of **{decision}**.
+    """
+    st.info(explanation)
+
+    if st.session_state.logged_in:
+      record = {
+          "User": st.session_state.username,
+          "Income": income,
+          "Loan Amount": amount,
+          "Grade": grade,
+          "Default Prob (%)": pct,
+          "Decision": decision,
       }
-
-      for col in feature_names:
-        if col.startswith("person_home_ownership_"):
-          cat = col.replace("person_home_ownership_", "")
-          row[col] = 1 if home == cat else 0
-        elif col.startswith("loan_intent_"):
-          cat = col.replace("loan_intent_", "")
-          row[col] = 1 if intent == cat else 0
-
-      input_df = pd.DataFrame([row])[feature_names]
-      prob = model.predict_proba(input_df)[0][1]
-      pct = round(prob * 100, 2)
-
-      # Output Display Columns
-      res_col1, res_col2 = st.columns(2)
-      with res_col1:
-        st.metric(label="Calculated Default Probability", value=f"{pct}%")
-        st.progress(float(prob))
-
-      with res_col2:
-        if prob < 0.30:
-          decision = "Approved (Low Risk)"
-          st.success(
-              f"### Status: {decision}\n- DTI Ratio:"
-              f" {round(percent_income*100, 1)}%\n- Risk Tier: Prime"
-          )
-        elif prob <= 0.60:
-          decision = "Manual Review Needed"
-          st.warning(
-              f"### Status: {decision}\n- DTI Ratio:"
-              f" {round(percent_income*100, 1)}%\n- Risk Tier: Borderline"
-          )
-        else:
-          decision = "Rejected (High Risk)"
-          st.error(
-              f"### Status: {decision}\n- DTI Ratio:"
-              f" {round(percent_income*100, 1)}%\n- Risk Tier: Subprime"
-          )
-
-      # Concise Explanation Section
-      st.markdown("---")
-      st.markdown("### 📝 Concise Underwriting Explanation")
-      explanation = f"""
-      - **Loan-to-Income Ratio:** The requested loan of `${amount:,}` represents **{round(percent_income*100, 1)}%** of the applicant's annual income (`${income:,}`). 
-      - **Credit & Grade Impact:** Rated under Loan Grade **{grade}** with a credit history length of **{cred_hist} years**.
-      - **Historical Risk Factor:** Previous default record status is set to **{default_history}**.
-      - **Final Recommendation:** The model computed a default probability of **{pct}%**, resulting in an underwriting decision of **{decision}**.
-      """
-      st.info(explanation)
-
-      # Log Record if Logged In
-      if st.session_state.logged_in:
-        record = {
-            "User": st.session_state.username,
-            "Income": income,
-            "Loan Amount": amount,
-            "Grade": grade,
-            "Default Prob (%)": pct,
-            "Decision": decision,
-        }
-        st.session_state.history.append(record)
+      st.session_state.history.append(record)
 
 
 # ==========================================
@@ -276,12 +269,9 @@ elif page == "Past Records":
       history_df = pd.DataFrame(st.session_state.history)
       st.dataframe(history_df, use_container_width=True)
     else:
-      st.info(
-          "No prediction records logged yet. Run an assessment in the **Input &"
-          " Prediction** page."
-      )
+      st.info("No prediction records logged yet during this session.")
   else:
     st.warning(
-        "🔒 **Access Restricted:** You must be logged in to view past"
-        " records. Please click **Log In** in the sidebar."
+        "🔒 **Access Restricted:** You must be logged in to view past records."
+        " Expand 'Log In to System' in the sidebar."
     )
