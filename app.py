@@ -9,52 +9,27 @@ st.set_page_config(
     page_title="Credit Risk Analysis System", page_icon="💳", layout="wide"
 )
 
-# Detect Streamlit Active Theme (Dark vs Light)
-is_dark = st.get_option("theme.base") == "dark"
-
-# Dynamic Theme Variables for Website Background & Cards
-bg_color = "#071A33" if is_dark else "#FFFFFF"
-sidebar_color = "#041021" if is_dark else "#F0F4F8"
-text_color = "#E6F1FF" if is_dark else "#1B2A41"
-panel_color = "#0E2A4D" if is_dark else "#F7FAFD"
-border_color = "#1C4474" if is_dark else "#D5DCEC"
-theme_suffix = "dark" if is_dark else "light"
-
-# Inject Dynamic CSS based on Theme Mode
+# Native Streamlit Theme-Adaptive CSS Injection
 st.markdown(
-    f"""
+    """
     <style>
-    /* Main App Background */
-    .stApp {{
-        background-color: {bg_color};
-        color: {text_color};
-    }}
+    /* Use Streamlit native CSS variables for seamless light/dark auto-switching */
+    .stApp {
+        background-color: var(--background-color);
+        color: var(--text-color);
+    }
     
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {{
-        background-color: {sidebar_color};
-        color: {text_color};
-    }}
+    [data-testid="stSidebar"] {
+        background-color: var(--secondary-background-color);
+        color: var(--text-color);
+    }
     
-    /* Metric Cards Styling */
-    [data-testid="stMetric"] {{
-        background-color: {panel_color};
-        border: 1px solid {border_color};
+    [data-testid="stMetric"] {
+        background-color: var(--secondary-background-color);
+        border: 1px solid rgba(128, 128, 128, 0.2);
         padding: 15px;
         border-radius: 10px;
-    }}
-    
-    /* Headers, Text, and Labels */
-    h1, h2, h3, h4, h5, h6, p, span, label {{
-        color: {text_color} !important;
-    }}
-    
-    /* Form Inputs */
-    .stTextInput input, .stNumberInput input, .stSelectbox select {{
-        background-color: {panel_color} !important;
-        color: {text_color} !important;
-        border-color: {border_color} !important;
-    }}
+    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -81,6 +56,10 @@ try:
 except Exception as e:
   st.error(f"Model files not found in 'model/' directory. Error: {e}")
   st.stop()
+
+# Detect Active Mode for Assets
+is_dark = st.get_option("theme.base") == "dark"
+theme_suffix = "dark" if is_dark else "light"
 
 # --- SIDEBAR NAVIGATION & LOGIN MODAL ---
 st.sidebar.title("💳 Navigation")
@@ -141,28 +120,25 @@ if page == "Home":
   st.markdown("---")
   st.subheader("📈 EDA Visualizations & Risk Drivers")
 
-  # Dynamically load either the _dark.png or _light.png asset based on theme mode
   c1, c2 = st.columns(2)
   with c1:
-    img_path_1 = f"assets/eda_income_patterns_{theme_suffix}.png"
-    img_path_2 = f"assets/eda_risk_distribution_grade_{theme_suffix}.png"
-    img_path_3 = f"assets/eda_cred_history_{theme_suffix}.png"
-
-    if os.path.exists(img_path_1):
-      st.image(img_path_1)
-    if os.path.exists(img_path_2):
-      st.image(img_path_2)
-    if os.path.exists(img_path_3):
-      st.image(img_path_3)
+    img_1 = f"assets/eda_income_patterns_{theme_suffix}.png"
+    img_2 = f"assets/eda_risk_distribution_grade_{theme_suffix}.png"
+    img_3 = f"assets/eda_cred_history_{theme_suffix}.png"
+    if os.path.exists(img_1):
+      st.image(img_1)
+    if os.path.exists(img_2):
+      st.image(img_2)
+    if os.path.exists(img_3):
+      st.image(img_3)
 
   with c2:
-    img_path_4 = f"assets/eda_loan_amounts_{theme_suffix}.png"
-    img_path_5 = f"assets/eda_default_trends_intent_{theme_suffix}.png"
-
-    if os.path.exists(img_path_4):
-      st.image(img_path_4)
-    if os.path.exists(img_path_5):
-      st.image(img_path_5)
+    img_4 = f"assets/eda_loan_amounts_{theme_suffix}.png"
+    img_5 = f"assets/eda_default_trends_intent_{theme_suffix}.png"
+    if os.path.exists(img_4):
+      st.image(img_4)
+    if os.path.exists(img_5):
+      st.image(img_5)
 
 
 # ==========================================
