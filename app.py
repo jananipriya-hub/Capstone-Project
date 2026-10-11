@@ -9,6 +9,46 @@ st.set_page_config(
     page_title="Credit Risk Analysis System", page_icon="💳", layout="wide"
 )
 
+# Custom CSS Injection to match visualization background (#071A33) and cards (#0E2A4D)
+st.markdown(
+    """
+    <style>
+    /* Main App Background */
+    .stApp {
+        background-color: #071A33;
+        color: #E6F1FF;
+    }
+    
+    /* Sidebar Styling */
+    [data-testid="stSidebar"] {
+        background-color: #041021;
+        color: #E6F1FF;
+    }
+    
+    /* Metric Cards Styling */
+    [data-testid="stMetric"] {
+        background-color: #0E2A4D;
+        border: 1px solid #1C4474;
+        padding: 15px;
+        border-radius: 10px;
+    }
+    
+    /* Headers and Text */
+    h1, h2, h3, h4, h5, h6, p, span, label {
+        color: #E6F1FF !important;
+    }
+    
+    /* Form and Input Backgrounds */
+    .stTextInput input, .stNumberInput input, .stSelectbox select {
+        background-color: #0E2A4D !important;
+        color: #E6F1FF !important;
+        border-color: #1C4474 !important;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
 # Initialize Session State
 if "logged_in" not in st.session_state:
   st.session_state.logged_in = False
@@ -93,30 +133,17 @@ if page == "Home":
   c1, c2 = st.columns(2)
   with c1:
     if os.path.exists("assets/eda_income_patterns.png"):
-      st.image(
-          "assets/eda_income_patterns.png",
-          caption="Income vs Loan Default Patterns",
-      )
+      st.image("assets/eda_income_patterns.png")
     if os.path.exists("assets/eda_risk_distribution_grade.png"):
-      st.image(
-          "assets/eda_risk_distribution_grade.png",
-          caption="Default Distribution by Loan Grade",
-      )
+      st.image("assets/eda_risk_distribution_grade.png")
     if os.path.exists("assets/eda_cred_history.png"):
-      st.image(
-          "assets/eda_cred_history.png", caption="Credit History vs Default"
-      )
+      st.image("assets/eda_cred_history.png")
 
   with c2:
     if os.path.exists("assets/eda_loan_amounts.png"):
-      st.image(
-          "assets/eda_loan_amounts.png", caption="Loan Amount Distribution"
-      )
+      st.image("assets/eda_loan_amounts.png")
     if os.path.exists("assets/eda_default_trends_intent.png"):
-      st.image(
-          "assets/eda_default_trends_intent.png",
-          caption="Default Trends by Loan Intent",
-      )
+      st.image("assets/eda_default_trends_intent.png")
 
 
 # ==========================================
@@ -130,7 +157,6 @@ elif page == "Input & Prediction":
   )
   st.markdown("---")
 
-  # Centered Form Controls for Input Parameters
   with st.form("prediction_form"):
     st.subheader("📋 Applicant Parameter Details")
 
@@ -234,7 +260,6 @@ elif page == "Input & Prediction":
             f" {round(percent_income*100, 1)}%\n- Risk Tier: Subprime"
         )
 
-    # Explanation Section renamed to "Why This Score"
     st.markdown("---")
     st.markdown("### 💡 Why This Score")
     explanation = f"""
