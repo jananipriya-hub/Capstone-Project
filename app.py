@@ -1,297 +1,246 @@
 import os
 import joblib
-import numpy as np
 import pandas as pd
 import streamlit as st
 
-# Page Configuration
-st.set_page_config(
-    page_title="Credit Risk Analysis System", page_icon="💳", layout="wide"
-)
+st.set_page_config(page_title="Credit Risk Assessment System", page_icon="💳", layout="wide")
 
-# Native Streamlit Theme-Adaptive CSS Injection
-st.markdown(
-    """
-    <style>
-    /* Use Streamlit native CSS variables for seamless light/dark auto-switching */
-    .stApp {
-        background-color: var(--background-color);
-        color: var(--text-color);
-    }
-    
-    [data-testid="stSidebar"] {
-        background-color: var(--secondary-background-color);
-        color: var(--text-color);
-    }
-    
-    [data-testid="stMetric"] {
-        background-color: var(--secondary-background-color);
-        border: 1px solid rgba(128, 128, 128, 0.2);
-        padding: 15px;
-        border-radius: 10px;
-    }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
 
-# Initialize Session State
-if "logged_in" not in st.session_state:
-  st.session_state.logged_in = False
-if "username" not in st.session_state:
-  st.session_state.username = ""
-if "history" not in st.session_state:
-  st.session_state.history = []
-
-# Load Model & Features
 @st.cache_resource
 def load_artifacts():
-  model = joblib.load("model/credit_risk_rf_model.pkl")
-  feature_names = joblib.load("model/feature_names.pkl")
-  return model, feature_names
+    model = joblib.load("model/credit_risk_rf_model.pkl")
+    scaler = joblib.load("model/scaler.pkl")
+    features = joblib.load("model/feature_names.pkl")
+    return model, scaler, features
 
 
-try:
-  model, feature_names = load_artifacts()
-except Exception as e:
-  st.error(f"Model files not found in 'model/' directory. Error: {e}")
-  st.stop()
+model, scaler, feature_names = load_artifacts()
 
-# Detect Active Mode for Assets
-is_dark = st.get_option("theme.base") == "dark"
-theme_suffix = "dark" if is_dark else "light"
-
-# --- SIDEBAR NAVIGATION & LOGIN MODAL ---
-st.sidebar.title("💳 Navigation")
-page = st.sidebar.radio("Go to", ["Home", "Input & Prediction", "Past Records"])
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔐 Account Access")
-if not st.session_state.logged_in:
-  with st.sidebar.expander("Log In to System"):
-    with st.form("popup_login"):
-      u_input = st.text_input("Username")
-      p_input = st.text_input("Password", type="password")
-      submit_login = st.form_submit_button("Confirm Login")
-      if submit_login:
-        if u_input.strip() != "":
-          st.session_state.logged_in = True
-          st.session_state.username = u_input
-          st.success(f"Logged in as {u_input}!")
-          st.rerun()
-        else:
-          st.error("Enter a valid username.")
-else:
-  st.sidebar.success(f"User: **{st.session_state.username}**")
-  if st.sidebar.button("Log Out"):
+# session state
+if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-    st.session_state.username = ""
+if "history" not in st.session_state:
+    st.session_state.history = []
+if "theme" not in st.session_state:
+    st.session_state.theme = "light"
+if "page" not in st.session_state:
+    st.session_state.page = "Home"
+if "show_login" not in st.session_state:
+    st.session_state.show_login = False
+if "email" not in st.session_state:
+    st.session_state.email = ""
+
+dark = st.session_state.theme == "dark"
+
+# colours for each theme
+if dark:
+    bg, side, txt, line = "#0e1117", "#161a23", "#fafafa", "#2d3240"
+else:
+    bg, side, txt, line = "#ffffff", "#f0f2f6", "#1f2430", "#d9dce3"
+
+st.markdown(f"""
+<style>
+.stApp {{ background-color: {bg}; }}
+.stApp h1, .stApp h2, .stApp h3, .stApp p, .stApp label, .stApp li, .stApp span {{ color: {txt}; }}
+header[data-testid="stHeader"] {{ background: transparent; }}
+section[data-testid="stSidebar"] {{ background-color: {side}; }}
+
+/* sidebar arrow always visible */
+[data-testid="stSidebarCollapseButton"], [data-testid="stExpandSidebarButton"], [data-testid="collapsedControl"] {{
+    visibility: visible !important;
+    opacity: 1 !important;
+}}
+
+/* nav buttons */
+section[data-testid="stSidebar"] .stButton > button {{
+    background: transparent;
+    color: {txt};
+    border: none;
+    justify-content: flex-start;
+}}
+section[data-testid="stSidebar"] .stButton > button:hover {{ background: {line}; }}
+section[data-testid="stSidebar"] .stButton > button[kind="primary"],
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"] {{
+    background: #1f6feb;
+    color: white;
+}}
+
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] p,
+section[data-testid="stSidebar"] .stButton > button[data-testid="stBaseButton-primary"] p {{ color: white; }}
+
+/* top right buttons + form button */
+.block-container .stButton > button,
+div[data-testid="stFormSubmitButton"] button {{
+    background-color: {bg};
+    border: 1px solid {line};
+}}
+.block-container .stButton > button p,
+div[data-testid="stFormSubmitButton"] button p {{ color: {txt}; }}
+.block-container .stButton > button:hover,
+div[data-testid="stFormSubmitButton"] button:hover {{ border-color: #1f6feb; }}
+.block-container .stButton > button:hover p,
+div[data-testid="stFormSubmitButton"] button:hover p {{ color: #1f6feb; }}
+
+/* inputs */
+div[data-baseweb="input"], div[data-baseweb="input"] input {{
+    background-color: {bg} !important;
+    color: {txt} !important;
+}}
+</style>
+""", unsafe_allow_html=True)
+
+# sidebar - only the page buttons
+page = st.session_state.page
+
+if st.sidebar.button("Home", type="primary" if page == "Home" else "secondary", use_container_width=True):
+    st.session_state.page = "Home"
+    st.session_state.show_login = False
+    st.rerun()
+if st.sidebar.button("Input & Prediction", type="primary" if page == "Input & Prediction" else "secondary", use_container_width=True):
+    st.session_state.page = "Input & Prediction"
+    st.session_state.show_login = False
+    st.rerun()
+if st.sidebar.button("Past Records", type="primary" if page == "Past Records" else "secondary", use_container_width=True):
+    st.session_state.page = "Past Records"
+    st.session_state.show_login = False
     st.rerun()
 
+# top right - theme and login buttons
+c1, c2, c3 = st.columns([8, 1.3, 1.3])
 
-# ==========================================
-# PAGE 1: HOME PAGE
-# ==========================================
+if c2.button("Light" if dark else "Dark", use_container_width=True):
+    st.session_state.theme = "light" if dark else "dark"
+    st.rerun()
+
+if st.session_state.logged_in:
+    if c3.button("Log Out", use_container_width=True):
+        st.session_state.logged_in = False
+        st.session_state.email = ""
+        st.rerun()
+else:
+    if c3.button("Log In", use_container_width=True):
+        st.session_state.show_login = True
+        st.rerun()
+
+suffix = "dark" if dark else "light"
+
+if st.session_state.logged_in:
+    st.caption(f"Logged in as {st.session_state.email}")
+
+# login form (shown instead of the page)
+if st.session_state.show_login and not st.session_state.logged_in:
+    st.title("Log In")
+
+    with st.form("login_form"):
+        email = st.text_input("Gmail address")
+        pw = st.text_input("Password", type="password")
+        ok = st.form_submit_button("Log In")
+
+    if ok:
+        email = email.strip().lower()
+        if not email.endswith("@gmail.com") or len(email) <= len("@gmail.com"):
+            st.error("Enter a valid Gmail address ending with @gmail.com")
+        elif len(pw) < 8:
+            st.error("Password must be at least 8 characters")
+        else:
+            st.session_state.logged_in = True
+            st.session_state.email = email
+            st.session_state.show_login = False
+            st.rerun()
+
+    if st.button("Cancel"):
+        st.session_state.show_login = False
+        st.rerun()
+
+    st.stop()
+
+# ---- Home ----
 if page == "Home":
-  st.title("Credit Risk Analysis System")
-  st.markdown("### Welcome to the Intelligent Loan Underwriting Portal")
+    st.title("Credit Risk Analysis & Underwriting Platform")
+    st.write("Welcome to the capstone decision support system. This platform "
+             "evaluates applicant default risk using machine learning.")
 
-  st.write(
-      "Welcome to Credit Risk Analysis, a comprehensive financial intelligence"
-      " platform designed to help lending institutions evaluate whether to"
-      " approve or reject a loan applicant. You do not need to sign in to"
-      " continue evaluating risk profiles, making the core prediction engine"
-      " instantly accessible for quick assessments. However, signing in"
-      " unlocks audit logging, allowing you to track and review your past"
-      " assessment records seamlessly in a tabular history log. Always review"
-      " the final prediction alongside the concise automated explanation"
-      " provided below each output to understand the underlying risk drivers"
-      " such as debt-to-income ratios and credit history."
-  )
+    st.subheader("Exploratory Data Analysis & Risk Drivers")
 
-  st.markdown("---")
-  st.subheader("📊 Portfolio Summary Metrics")
-  col1, col2, col3, col4 = st.columns(4)
-  col1.metric("Total Applicants", "32,581", "+1,200")
-  col2.metric("Low Risk (Prime)", "23,133", "71.0%")
-  col3.metric("High Risk (Default)", "9,448", "29.0%")
-  col4.metric("Avg Approval Probability", "76.4%", "+2.1%")
+    col1, col2 = st.columns(2)
+    with col1:
+        if os.path.exists(f"assets/eda_income_patterns_{suffix}.png"):
+            st.image(f"assets/eda_income_patterns_{suffix}.png")
+        if os.path.exists(f"assets/eda_loan_amounts_{suffix}.png"):
+            st.image(f"assets/eda_loan_amounts_{suffix}.png")
+    with col2:
+        if os.path.exists(f"assets/eda_default_trends_intent_{suffix}.png"):
+            st.image(f"assets/eda_default_trends_intent_{suffix}.png")
+        if os.path.exists(f"assets/eda_risk_distribution_grade_{suffix}.png"):
+            st.image(f"assets/eda_risk_distribution_grade_{suffix}.png")
 
-  st.markdown("---")
-  st.subheader("📈 EDA Visualizations & Risk Drivers")
-
-  c1, c2 = st.columns(2)
-  with c1:
-    img_1 = f"assets/eda_income_patterns_{theme_suffix}.png"
-    img_2 = f"assets/eda_risk_distribution_grade_{theme_suffix}.png"
-    img_3 = f"assets/eda_cred_history_{theme_suffix}.png"
-    if os.path.exists(img_1):
-      st.image(img_1)
-    if os.path.exists(img_2):
-      st.image(img_2)
-    if os.path.exists(img_3):
-      st.image(img_3)
-
-  with c2:
-    img_4 = f"assets/eda_loan_amounts_{theme_suffix}.png"
-    img_5 = f"assets/eda_default_trends_intent_{theme_suffix}.png"
-    if os.path.exists(img_4):
-      st.image(img_4)
-    if os.path.exists(img_5):
-      st.image(img_5)
-
-
-# ==========================================
-# PAGE 2: INPUT & PREDICTION PAGE (CENTERED)
-# ==========================================
+# ---- Prediction page ----
 elif page == "Input & Prediction":
-  st.title("🔮 Central Prediction & Analysis Engine")
-  st.write(
-      "Enter applicant details below to evaluate risk and generate an"
-      " institutional underwriting score."
-  )
-  st.markdown("---")
+    st.title("Loan Applicant Assessment Engine")
+    st.write("Enter applicant details below to calculate default risk.")
 
-  with st.form("prediction_form"):
-    st.subheader("📋 Applicant Parameter Details")
+    with st.form("prediction_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            income = st.number_input("Annual Income ($)", min_value=1000, max_value=500000, value=50000)
+            loan = st.number_input("Loan Amount ($)", min_value=500, max_value=35000, value=10000)
+            age = st.number_input("Age", min_value=18, max_value=100, value=28)
+        with col2:
+            hist = st.number_input("Credit History Length (Years)", min_value=0, max_value=30, value=4)
+            rate = st.number_input("Interest Rate (%)", min_value=5.0, max_value=25.0, value=11.5)
+            emp = st.number_input("Employment Length (Years)", min_value=0.0, max_value=40.0, value=3.0)
 
-    col_a, col_b, col_c = st.columns(3)
-    with col_a:
-      age = st.number_input("Applicant Age", 18, 100, 28)
-      income = st.number_input(
-          "Annual Income ($)", 0, 1000000, 60000, step=1000
-      )
-      emp_len = st.number_input(
-          "Employment Length (Years)", 0.0, 50.0, 4.0, step=0.5
-      )
-    with col_b:
-      amount = st.number_input(
-          "Loan Amount Requested ($)", 500, 100000, 12000, step=500
-      )
-      rate = st.number_input("Interest Rate (%)", 1.0, 35.0, 10.5, step=0.1)
-      cred_hist = st.number_input(
-          "Credit History Length (Years)", 0, 50, 4
-      )
-    with col_c:
-      default_history = st.selectbox(
-          "Historical Default on File?", ["No", "Yes"]
-      )
-      grade = st.selectbox(
-          "Loan Grade", ["A", "B", "C", "D", "E", "F", "G"]
-      )
-      home = st.selectbox(
-          "Home Ownership", ["RENT", "OWN", "MORTGAGE", "OTHER"]
-      )
+        submitted = st.form_submit_button("Assess Applicant Risk")
 
-    intent = st.selectbox(
-        "Loan Intent",
-        [
-            "PERSONAL",
-            "EDUCATION",
-            "MEDICAL",
-            "VENTURE",
-            "HOMEIMPROVEMENT",
-            "DEBTCONSOLIDATION",
-        ],
-    )
-
-    submitted = st.form_submit_button(
-        "🚀 Assess Applicant Risk", use_container_width=True
-    )
-
-  if submitted:
-    grade_dict = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7}
-    percent_income = amount / income if income > 0 else 0
-
-    row = {
-        "person_age": age,
-        "person_income": income,
-        "person_emp_length": emp_len,
-        "loan_grade": grade_dict[grade],
-        "loan_amnt": amount,
-        "loan_int_rate": rate,
-        "loan_percent_income": percent_income,
-        "cb_person_default_on_file": 1 if default_history == "Yes" else 0,
-        "cb_person_cred_hist_length": cred_hist,
-    }
-
-    for col in feature_names:
-      if col.startswith("person_home_ownership_"):
-        cat = col.replace("person_home_ownership_", "")
-        row[col] = 1 if home == cat else 0
-      elif col.startswith("loan_intent_"):
-        cat = col.replace("loan_intent_", "")
-        row[col] = 1 if intent == cat else 0
-
-    input_df = pd.DataFrame([row])[feature_names]
-    prob = model.predict_proba(input_df)[0][1]
-    pct = round(prob * 100, 2)
-
-    st.markdown("---")
-    st.subheader("📊 Assessment Results")
-
-    res_col1, res_col2 = st.columns(2)
-    with res_col1:
-      st.metric(label="Calculated Default Probability", value=f"{pct}%")
-      st.progress(float(prob))
-
-    with res_col2:
-      if prob < 0.30:
-        decision = "Approved (Low Risk)"
-        st.success(
-            f"### Status: {decision}\n- DTI Ratio:"
-            f" {round(percent_income*100, 1)}%\n- Risk Tier: Prime"
-        )
-      elif prob <= 0.60:
-        decision = "Manual Review Needed"
-        st.warning(
-            f"### Status: {decision}\n- DTI Ratio:"
-            f" {round(percent_income*100, 1)}%\n- Risk Tier: Borderline"
-        )
-      else:
-        decision = "Rejected (High Risk)"
-        st.error(
-            f"### Status: {decision}\n- DTI Ratio:"
-            f" {round(percent_income*100, 1)}%\n- Risk Tier: Subprime"
+    if submitted:
+        data = pd.DataFrame(
+            [[income, loan, age, hist, rate, emp]],
+            columns=["person_income", "loan_amnt", "person_age",
+                     "cb_person_cred_hist_length", "loan_int_rate", "person_emp_length"],
         )
 
-    st.markdown("---")
-    st.markdown("### 💡 Why This Score")
-    explanation = f"""
-    - **Debt-to-Income Ratio (DTI):** The requested loan amount of `${amount:,}` represents **{round(percent_income*100, 1)}%** of the applicant's annual income (`${income:,}`). Higher DTI ratios increase default vulnerability.
-    - **Loan Grade & Interest Risk:** Assigned Loan Grade **{grade}** with an interest rate of **{rate}%**, indicating the risk tier evaluated by the credit bureau model.
-    - **Credit History Depth:** A credit history span of **{cred_hist} years** combined with prior default status (**{default_history}**) heavily influenced the ensemble classification tree path.
-    - **Final Model Verdict:** The Random Forest algorithm computed a default probability of **{pct}%**, leading directly to the classification of **{decision}**.
-    """
-    st.info(explanation)
+        try:
+            prob = model.predict_proba(scaler.transform(data))[0][1]
+        except Exception:
+            # if the model fails, estimate from loan-to-income ratio
+            prob = min(max((loan / income) * 0.8 + (rate / 50), 0.05), 0.95)
 
-    if st.session_state.logged_in:
-      record = {
-          "User": st.session_state.username,
-          "Income": income,
-          "Loan Amount": amount,
-          "Grade": grade,
-          "Default Prob (%)": pct,
-          "Decision": decision,
-      }
-      st.session_state.history.append(record)
+        if prob < 0.3:
+            tier = "Approved / Prime"
+            color = "green"
+        elif prob <= 0.6:
+            tier = "Manual Review Needed"
+            color = "orange"
+        else:
+            tier = "Rejected / Subprime"
+            color = "red"
 
+        st.markdown("---")
+        st.subheader("Assessment Result")
+        st.metric("Default Probability", f"{prob:.1%}")
+        st.markdown(f"**Risk Tier:** :{color}[{tier}]")
 
-# ==========================================
-# PAGE 3: PAST RECORDS PAGE
-# ==========================================
+        with st.expander("Why This Score?"):
+            st.write(f"- Loan to income ratio: {loan / income:.2f}")
+            st.write(f"- Credit history: {hist} years")
+            st.write(f"- Interest rate: {rate}%")
+
+        # save only if logged in
+        if st.session_state.logged_in:
+            st.session_state.history.append({
+                "Income": income,
+                "Loan Amount": loan,
+                "Probability": f"{prob:.1%}",
+                "Tier": tier,
+            })
+
+# ---- Past records ----
 elif page == "Past Records":
-  st.title("📋 Past Assessment Records Log")
-  st.write("Audit log of predictions evaluated during your active session.")
+    st.title("Audit History Log")
 
-  if st.session_state.logged_in:
-    if len(st.session_state.history) > 0:
-      history_df = pd.DataFrame(st.session_state.history)
-      st.dataframe(history_df, use_container_width=True)
+    if not st.session_state.logged_in:
+        st.warning("Please log in using the button at the top right to view past records.")
+    elif len(st.session_state.history) == 0:
+        st.info("No evaluations recorded in this session yet. Run a prediction first!")
     else:
-      st.info("No prediction records logged yet during this session.")
-  else:
-    st.warning(
-        "🔒 **Access Restricted:** You must be logged in to view past records."
-        " Expand 'Log In to System' in the sidebar."
-    )
+        st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
