@@ -1,34 +1,73 @@
 import os
+
 import joblib
+import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 import streamlit as st
 
 st.set_page_config(page_title="Credit Risk Assessment System", page_icon="💳", layout="wide")
 
+DATA_PATH = "credit_risk_dataset_cleaned1.csv"
+GRADE_MAP = {"A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7}
+HOME_OPTIONS = ["RENT", "OWN", "MORTGAGE", "OTHER"]
+INTENT_OPTIONS = ["PERSONAL", "EDUCATION", "MEDICAL", "VENTURE", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"]
+
 
 @st.cache_resource
 def load_artifacts():
+    # The Random Forest was trained on raw (unscaled) features, so no scaler is used here.
     model = joblib.load("model/credit_risk_rf_model.pkl")
-    scaler = joblib.load("model/scaler.pkl")
     features = joblib.load("model/feature_names.pkl")
-    return model, scaler, features
+    return model, features
 
 
-model, scaler, feature_names = load_artifacts()
+@st.cache_data
+def load_data():
+    if os.path.exists(DATA_PATH):
+        return pd.read_csv(DATA_PATH)
+    return None
+
+
+model, feature_names = load_artifacts()
+
+
+def risk_tier(prob):
+    if prob < 0.3:
+        return "Approved / Prime", "green"
+    if prob <= 0.6:
+        return "Manual Review Needed", "orange"
+    return "Rejected / Subprime", "red"
+
+
+def importance_chart(top_n, text_color):
+    """Horizontal bar chart of the Random Forest's most important features."""
+    imp = pd.Series(model.feature_importances_, index=feature_names).sort_values(ascending=False).head(top_n)
+    fig, ax = plt.subplots(figsize=(5, 0.45 * top_n + 0.8))
+    sns.barplot(x=imp.values, y=imp.index, color="#1f6feb", ax=ax)
+    fig.patch.set_alpha(0)
+    ax.patch.set_alpha(0)
+    ax.set_xlabel("Importance", color=text_color)
+    ax.set_ylabel("")
+    ax.tick_params(colors=text_color, labelsize=9)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    fig.tight_layout()
+    return fig
+
 
 # session state
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "history" not in st.session_state:
-    st.session_state.history = []
-if "theme" not in st.session_state:
-    st.session_state.theme = "light"
-if "page" not in st.session_state:
-    st.session_state.page = "Home"
-if "show_login" not in st.session_state:
-    st.session_state.show_login = False
-if "email" not in st.session_state:
-    st.session_state.email = ""
+defaults = {
+    "logged_in": False,
+    "history": [],
+    "theme": "light",
+    "page": "Home",
+    "show_login": False,
+    "email": "",
+}
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 dark = st.session_state.theme == "dark"
 
@@ -81,6 +120,16 @@ div[data-testid="stFormSubmitButton"] button:hover {{ border-color: #1f6feb; }}
 .block-container .stButton > button:hover p,
 div[data-testid="stFormSubmitButton"] button:hover p {{ color: #1f6feb; }}
 
+/* metric numbers and labels (Snapshot, Assessment Result) */
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] *,
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] *,
+[data-testid="stMetricDelta"], [data-testid="stMetricDelta"] * {{
+    color: {txt} !important;
+}}
+
+/* captions */
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {{ color: {txt} !important; opacity: 0.8; }}
+
 /* inputs */
 div[data-baseweb="input"], div[data-baseweb="input"] input {{
     background-color: {bg} !important;
@@ -89,21 +138,13 @@ div[data-baseweb="input"], div[data-baseweb="input"] input {{
 </style>
 """, unsafe_allow_html=True)
 
-# sidebar - only the page buttons
+# sidebar - page buttons
 page = st.session_state.page
-
-if st.sidebar.button("Home", type="primary" if page == "Home" else "secondary", use_container_width=True):
-    st.session_state.page = "Home"
-    st.session_state.show_login = False
-    st.rerun()
-if st.sidebar.button("Input & Prediction", type="primary" if page == "Input & Prediction" else "secondary", use_container_width=True):
-    st.session_state.page = "Input & Prediction"
-    st.session_state.show_login = False
-    st.rerun()
-if st.sidebar.button("Past Records", type="primary" if page == "Past Records" else "secondary", use_container_width=True):
-    st.session_state.page = "Past Records"
-    st.session_state.show_login = False
-    st.rerun()
+for name in ["Home", "Input & Prediction", "Past Records"]:
+    if st.sidebar.button(name, type="primary" if page == name else "secondary", use_container_width=True):
+        st.session_state.page = name
+        st.session_state.show_login = False
+        st.rerun()
 
 # top right - theme and login buttons
 c1, c2, c3 = st.columns([8, 1.3, 1.3])
@@ -125,11 +166,13 @@ else:
 suffix = "dark" if dark else "light"
 
 if st.session_state.logged_in:
-    st.caption(f"Logged in as {st.session_state.email}")
+    st.caption(f"Logged in as {st.session_state.email} (demo session)")
 
 # login form (shown instead of the page)
 if st.session_state.show_login and not st.session_state.logged_in:
-    st.title("Log In")
+    st.title("Demo Log In")
+    st.caption("Demo login only: no accounts or passwords are stored. It unlocks saving and viewing past records "
+               "for this browser session.")
 
     with st.form("login_form"):
         email = st.text_input("Gmail address")
@@ -160,24 +203,42 @@ if page == "Home":
     st.write("Welcome to the capstone decision support system. This platform "
              "evaluates applicant default risk using machine learning.")
 
-    st.subheader("Exploratory Data Analysis & Risk Drivers")
+    left, right = st.columns([3, 1])
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if os.path.exists(f"assets/eda_income_patterns_{suffix}.png"):
-            st.image(f"assets/eda_income_patterns_{suffix}.png")
-        if os.path.exists(f"assets/eda_loan_amounts_{suffix}.png"):
-            st.image(f"assets/eda_loan_amounts_{suffix}.png")
-    with col2:
-        if os.path.exists(f"assets/eda_default_trends_intent_{suffix}.png"):
-            st.image(f"assets/eda_default_trends_intent_{suffix}.png")
-        if os.path.exists(f"assets/eda_risk_distribution_grade_{suffix}.png"):
-            st.image(f"assets/eda_risk_distribution_grade_{suffix}.png")
+    # main area: the saved EDA charts (2 x 2)
+    with left:
+        st.subheader("Exploratory Data Analysis & Risk Drivers")
+        col1, col2 = st.columns(2)
+        with col1:
+            for img in ("eda_income_patterns", "eda_loan_amounts"):
+                path = f"assets/{img}_{suffix}.png"
+                if os.path.exists(path):
+                    st.image(path)
+        with col2:
+            for img in ("eda_default_trends_intent", "eda_risk_distribution_grade"):
+                path = f"assets/{img}_{suffix}.png"
+                if os.path.exists(path):
+                    st.image(path)
+
+    # right corner: compact snapshot, no filters
+    with right:
+        st.subheader("Snapshot")
+        df = load_data()
+        if df is not None:
+            st.metric("Applicants", f"{len(df):,}")
+            st.metric("Default rate", f"{df['loan_status'].mean():.1%}")
+            st.metric("Avg loan amount", f"${df['loan_amnt'].mean():,.0f}")
+            st.metric("Avg income", f"${df['person_income'].mean():,.0f}")
+        st.markdown("**Top risk drivers**")
+        fig = importance_chart(5, txt)
+        st.pyplot(fig, transparent=True)
+        plt.close(fig)
 
 # ---- Prediction page ----
 elif page == "Input & Prediction":
     st.title("Loan Applicant Assessment Engine")
     st.write("Enter applicant details below to calculate default risk.")
+    st.caption("Educational demo built on a public dataset. Not for real lending decisions.")
 
     with st.form("prediction_form"):
         col1, col2 = st.columns(2)
@@ -185,35 +246,53 @@ elif page == "Input & Prediction":
             income = st.number_input("Annual Income ($)", min_value=1000, max_value=500000, value=50000)
             loan = st.number_input("Loan Amount ($)", min_value=500, max_value=35000, value=10000)
             age = st.number_input("Age", min_value=18, max_value=100, value=28)
-        with col2:
             hist = st.number_input("Credit History Length (Years)", min_value=0, max_value=30, value=4)
-            rate = st.number_input("Interest Rate (%)", min_value=5.0, max_value=25.0, value=11.5)
             emp = st.number_input("Employment Length (Years)", min_value=0.0, max_value=40.0, value=3.0)
+        with col2:
+            rate = st.number_input("Interest Rate (%)", min_value=5.0, max_value=25.0, value=11.5)
+            grade = st.selectbox("Loan Grade", list(GRADE_MAP.keys()), index=1)
+            home = st.selectbox("Home Ownership", HOME_OPTIONS)
+            intent = st.selectbox("Loan Intent", INTENT_OPTIONS)
+            prior_default = st.selectbox("Previous default on file?", ["N", "Y"])
 
         submitted = st.form_submit_button("Assess Applicant Risk")
 
     if submitted:
-        data = pd.DataFrame(
-            [[income, loan, age, hist, rate, emp]],
-            columns=["person_income", "loan_amnt", "person_age",
-                     "cb_person_cred_hist_length", "loan_int_rate", "person_emp_length"],
-        )
+        provided = {
+            "person_age": age,
+            "person_income": income,
+            "person_emp_length": emp,
+            "loan_amnt": loan,
+            "loan_int_rate": rate,
+            "loan_percent_income": loan / income,
+            "cb_person_cred_hist_length": hist,
+            "loan_grade": GRADE_MAP[grade],
+            "cb_person_default_on_file": 1 if prior_default == "Y" else 0,
+        }
+
+        # every column the model was trained on must be accounted for
+        one_hot_prefixes = ("person_home_ownership_", "loan_intent_")
+        unmapped = [c for c in feature_names if c not in provided and not c.startswith(one_hot_prefixes)]
+        if unmapped:
+            st.error(f"The model expects columns this form does not collect: {unmapped}. "
+                     "Add inputs for them in app.py.")
+            st.stop()
+
+        row = dict.fromkeys(feature_names, 0)
+        row.update({k: v for k, v in provided.items() if k in row})
+        for col in (f"person_home_ownership_{home}", f"loan_intent_{intent}"):
+            if col in row:  # the dropped first category has no column (all zeros)
+                row[col] = 1
+
+        X = pd.DataFrame([row])[feature_names]
 
         try:
-            prob = model.predict_proba(scaler.transform(data))[0][1]
-        except Exception:
-            # if the model fails, estimate from loan-to-income ratio
-            prob = min(max((loan / income) * 0.8 + (rate / 50), 0.05), 0.95)
+            prob = float(model.predict_proba(X)[0][1])
+        except Exception as e:
+            st.error(f"Prediction failed: {e}")
+            st.stop()
 
-        if prob < 0.3:
-            tier = "Approved / Prime"
-            color = "green"
-        elif prob <= 0.6:
-            tier = "Manual Review Needed"
-            color = "orange"
-        else:
-            tier = "Rejected / Subprime"
-            color = "red"
+        tier, color = risk_tier(prob)
 
         st.markdown("---")
         st.subheader("Assessment Result")
@@ -221,15 +300,25 @@ elif page == "Input & Prediction":
         st.markdown(f"**Risk Tier:** :{color}[{tier}]")
 
         with st.expander("Why This Score?"):
+            st.write("**This applicant**")
             st.write(f"- Loan to income ratio: {loan / income:.2f}")
-            st.write(f"- Credit history: {hist} years")
             st.write(f"- Interest rate: {rate}%")
+            st.write(f"- Loan grade: {grade}")
+            st.write(f"- Credit history: {hist} years")
+            st.write("**What the model weighs most overall**")
+            fig = importance_chart(6, txt)
+            st.pyplot(fig, transparent=True)
+            plt.close(fig)
+            st.caption("Importances show the model's general behaviour, not a per-applicant explanation.")
 
         # save only if logged in
         if st.session_state.logged_in:
             st.session_state.history.append({
                 "Income": income,
                 "Loan Amount": loan,
+                "Grade": grade,
+                "Intent": intent,
+                "Interest Rate": rate,
                 "Probability": f"{prob:.1%}",
                 "Tier": tier,
             })
@@ -244,3 +333,4 @@ elif page == "Past Records":
         st.info("No evaluations recorded in this session yet. Run a prediction first!")
     else:
         st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
+        st.caption("Records are kept for this browser session only.")
