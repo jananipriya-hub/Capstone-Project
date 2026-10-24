@@ -5,21 +5,16 @@ import os
 import re
 import sqlite3
 from datetime import datetime
-
 import joblib
 import pandas as pd
 
 DB_FILE = "credit_risk.db"
-
 EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z]{2,})+$")
-# 8+ chars, one lower, one upper, one digit, one special char, no spaces
 PASS_RE = re.compile(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])\S{8,}$")
-
 HOME = ["RENT", "OWN", "MORTGAGE", "OTHER"]
 INTENT = ["PERSONAL", "EDUCATION", "MEDICAL", "VENTURE", "HOMEIMPROVEMENT", "DEBTCONSOLIDATION"]
 GRADES = list("ABCDEFG")
 
-# a typical lower-risk applicant, used only to explain a score
 BASELINE = {
     "person_income": 60000, "loan_amnt": 8000, "loan_grade": "B",
     "loan_int_rate": 10.0, "loan_percent_income": 0.15,
@@ -28,14 +23,11 @@ BASELINE = {
     "loan_intent": "VENTURE",
 }
 
-
 def load_model():
     model = joblib.load("model/credit_risk_rf_model.pkl")
     cols = joblib.load("model/feature_names.pkl")
     return model, cols
 
-
-# ---------- database ----------
 def db():
     con = sqlite3.connect(DB_FILE)
     con.execute("CREATE TABLE IF NOT EXISTS users (email TEXT PRIMARY KEY, salt BLOB, pw BLOB)")
@@ -44,10 +36,8 @@ def db():
         inputs TEXT, probability REAL, tier TEXT)""")
     return con
 
-
 def _hash(pw, salt):
     return hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, 200_000)
-
 
 def signup(email, pw):
     con = db()
@@ -61,13 +51,11 @@ def signup(email, pw):
     finally:
         con.close()
 
-
 def check_login(email, pw):
     con = db()
     row = con.execute("SELECT salt, pw FROM users WHERE email=?", (email,)).fetchone()
     con.close()
     return bool(row) and hmac.compare_digest(row[1], _hash(pw, row[0]))
-
 
 def save_assessment(email, inputs, prob, tier):
     con = db()
@@ -75,7 +63,6 @@ def save_assessment(email, inputs, prob, tier):
                 (email, datetime.now().strftime("%Y-%m-%d %H:%M"), json.dumps(inputs), prob, tier))
     con.commit()
     con.close()
-
 
 def get_history(email):
     con = db()
@@ -88,8 +75,6 @@ def get_history(email):
                     "default_probability": f"{prob:.1%}", "tier": tier})
     return pd.DataFrame(out)
 
-
-# ---------- model input ----------
 def to_row(d, cols):
     """turn the 11 app inputs into the same 17 columns the model was trained on"""
     row = dict.fromkeys(cols, 0)
@@ -100,14 +85,12 @@ def to_row(d, cols):
     row["cb_person_default_on_file"] = 1 if d["cb_person_default_on_file"] == "Y" else 0
     for c in (f"person_home_ownership_{d['person_home_ownership']}",
               f"loan_intent_{d['loan_intent']}"):
-        if c in row:          # MORTGAGE and DEBTCONSOLIDATION were dropped in get_dummies
+        if c in row:          
             row[c] = 1
     return pd.DataFrame([row])[cols]
 
-
 def predict(model, cols, d):
     return model.predict_proba(to_row(d, cols))[0][1]
-
 
 def explain(model, cols, d, prob):
     """swap one field at a time for a typical value and see how much the score moves"""
