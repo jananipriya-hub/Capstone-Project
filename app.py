@@ -12,7 +12,7 @@ def load_artifacts():
 
 model, feature_names = load_artifacts()
 
-# session state
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "theme" not in st.session_state:
@@ -26,7 +26,7 @@ if "email" not in st.session_state:
 
 dark = st.session_state.theme == "dark"
 
-# colours for each theme
+
 if dark:
     bg, side, txt, line = "#0e1117", "#161a23", "#fafafa", "#2d3240"
 else:
@@ -83,7 +83,7 @@ div[data-baseweb="input"], div[data-baseweb="input"] input {{
 </style>
 """, unsafe_allow_html=True)
 
-# sidebar - only the page buttons
+
 page = st.session_state.page
 
 if st.sidebar.button("Home", type="primary" if page == "Home" else "secondary", use_container_width=True):
@@ -99,7 +99,7 @@ if st.sidebar.button("Past Records", type="primary" if page == "Past Records" el
     st.session_state.show_login = False
     st.rerun()
 
-# top right - theme and login buttons
+
 c1, c2, c3 = st.columns([8, 1.3, 1.3])
 
 if c2.button("Light" if dark else "Dark", use_container_width=True):
@@ -121,7 +121,7 @@ suffix = "dark" if dark else "light"
 if st.session_state.logged_in:
     st.caption(f"Logged in as {st.session_state.email}")
 
-# login form (shown instead of the page)
+
 if st.session_state.show_login and not st.session_state.logged_in:
     st.title("Log In")
 
@@ -168,7 +168,7 @@ if st.session_state.show_login and not st.session_state.logged_in:
 
     st.stop()
 
-# ---- Home ----
+
 if page == "Home":
     st.title("Credit Risk Analysis & Underwriting Platform")
     st.write("Welcome to the capstone decision support system. This platform "
@@ -201,7 +201,7 @@ if page == "Home":
               "Officer note: from grade D onwards defaulters outnumber people who repaid. "
               "Grades A to C are mostly repaid, so treat D to G as high risk.")
 
-# ---- Prediction page ----
+
 elif page == "Input & Prediction":
     st.title("Loan Applicant Assessment Engine")
     st.write("Enter applicant details below to calculate default risk. "
@@ -270,7 +270,7 @@ elif page == "Input & Prediction":
         else:
             st.caption("Log in to save this assessment.")
 
-# ---- Past records ----
+
 elif page == "Past Records":
     st.title("Audit History Log")
 
